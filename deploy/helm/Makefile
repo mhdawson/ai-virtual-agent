@@ -81,16 +81,26 @@ help:
 	@echo "  {SAFETY,LLM}_URL         - Model URL"
 	@echo "  {SAFETY,LLM}_API_TOKEN   - Model API token for remote models"
 	@echo "  {SAFETY,LLM}_TOLERATION  - Model pod toleration"
+	@echo "  OTEL_CUSTOM_SCC=true     - Use custom SCC instead of changing Pod Security Standards"
 
 # Create namespace and deploy
 namespace:
 	@oc create namespace $(NAMESPACE) &> /dev/null && oc label namespace $(NAMESPACE) modelmesh-enabled=false ||:
+ifeq ($(OTEL_CUSTOM_SCC),true)
+	# Keep Pod Security Standards as 'restricted' and use custom SCC for OpenTelemetry
+	@echo "Using custom SCC for OpenTelemetry - namespace will remain 'restricted'"
+else
+	# Set Pod Security Standards to 'baseline' to allow OpenTelemetry auto-instrumentation init containers
+	@oc label namespace $(NAMESPACE) pod-security.kubernetes.io/enforce=baseline --overwrite &> /dev/null ||:
+	@oc label namespace $(NAMESPACE) pod-security.kubernetes.io/audit=baseline --overwrite &> /dev/null ||:
+	@oc label namespace $(NAMESPACE) pod-security.kubernetes.io/warn=baseline --overwrite &> /dev/null ||:
+endif
 	@oc project $(NAMESPACE) &> /dev/null ||:
 
 .PHONY: depend
 depend:
 	@echo "Updating Helm dependencies"
-	@helm dependency update $(AI_VIRTUAL_ASSISTANT_CHART) &> /dev/null
+	# @helm dependency update $(AI_VIRTUAL_ASSISTANT_CHART) &> /dev/null
 
 .PHONY: list-models
 list-models: depend
@@ -113,6 +123,7 @@ install: namespace depend
 		$(LLAMA_STACK_ARGS) \
 		$(INGESTION_ARGS) \
 		$(SEED_ADMIN_USER_ARGS) \
+		$(if $(filter true,$(OTEL_CUSTOM_SCC)),--set opentelemetry.scc.enabled=true,) \
 		$(EXTRA_HELM_ARGS)
 	@echo "Waiting for model services and llamastack to deploy. It may take around 10-15 minutes depending on the size of the model..."
 	@oc rollout status deploy/llamastack -n $(NAMESPACE)

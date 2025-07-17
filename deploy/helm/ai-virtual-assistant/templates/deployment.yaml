@@ -13,10 +13,31 @@ spec:
       {{- include "ai-virtual-assistant.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
       annotations:
+        {{- if .Values.opentelemetry.enabled }}
+        {{- if .Values.opentelemetry.sidecar.enabled }}
+        {{- if .Values.opentelemetry.sidecar.instrumentation.python }}
+        instrumentation.opentelemetry.io/inject-python: {{ include "ai-virtual-assistant.fullname" . | quote }}
+        {{- end }}
+        {{- if .Values.opentelemetry.sidecar.instrumentation.nodejs }}
+        instrumentation.opentelemetry.io/inject-nodejs: {{ include "ai-virtual-assistant.fullname" . | quote }}
+        {{- end }}
+        {{- if .Values.opentelemetry.sidecar.instrumentation.java }}
+        instrumentation.opentelemetry.io/inject-java: {{ include "ai-virtual-assistant.fullname" . | quote }}
+        {{- end }}
+        {{- if .Values.opentelemetry.sidecar.instrumentation.dotnet }}
+        instrumentation.opentelemetry.io/inject-dotnet: {{ include "ai-virtual-assistant.fullname" . | quote }}
+        {{- end }}
+        {{- if .Values.opentelemetry.sidecar.instrumentation.go }}
+        instrumentation.opentelemetry.io/inject-go: {{ include "ai-virtual-assistant.fullname" . | quote }}
+        {{- end }}
+        # Target only the ai-virtual-assistant container for instrumentation (not oauth-proxy)
+        instrumentation.opentelemetry.io/container-names: "ai-virtual-assistant"
+        {{- end }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
       labels:
         {{- include "ai-virtual-assistant.labels" . | nindent 8 }}
         {{- with .Values.podLabels }}
@@ -102,6 +123,38 @@ spec:
             {{- if .Values.seed.admin_user.email }}
             - name: ADMIN_EMAIL
               value: '{{ .Values.seed.admin_user.email }}'
+            {{- end }}
+            {{- if .Values.opentelemetry.enabled }}
+            # OpenTelemetry configuration
+            - name: OTEL_SERVICE_NAME
+              value: {{ .Values.opentelemetry.service.name | default (include "ai-virtual-assistant.fullname" .) | quote }}
+            - name: OTEL_SERVICE_VERSION
+              value: {{ .Values.opentelemetry.service.version | default .Chart.AppVersion | quote }}
+            - name: OTEL_SERVICE_NAMESPACE
+              value: {{ .Values.opentelemetry.service.namespace | default .Release.Namespace | quote }}
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "service.name={{ .Values.opentelemetry.resource.attributes.service.name | default (include "ai-virtual-assistant.fullname" .) }},service.version={{ .Values.opentelemetry.resource.attributes.service.version | default .Chart.AppVersion }},deployment.environment={{ .Values.opentelemetry.resource.attributes.deployment.environment }},k8s.namespace.name={{ .Values.opentelemetry.resource.attributes.k8s.namespace.name | default .Release.Namespace }},k8s.deployment.name={{ .Values.opentelemetry.resource.attributes.k8s.deployment.name | default (include "ai-virtual-assistant.fullname" .) }}"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.opentelemetry.collector.endpoint | quote }}
+            {{- if eq .Values.opentelemetry.collector.protocol "grpc" }}
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: "grpc"
+            {{- else }}
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: "http/protobuf"
+            {{- end }}
+            - name: OTEL_TRACES_SAMPLER
+              value: "traceidratio"
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: {{ .Values.opentelemetry.sampling.ratio | quote }}
+            - name: OTEL_BSP_SCHEDULE_DELAY
+              value: {{ .Values.opentelemetry.batch.timeout | quote }}
+            - name: OTEL_BSP_MAX_EXPORT_BATCH_SIZE
+              value: {{ .Values.opentelemetry.batch.maxSize | quote }}
+            - name: OTEL_PROPAGATORS
+              value: "tracecontext,baggage"
+            - name: OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED
+              value: "true"
             {{- end }}
           ports:
             - name: http

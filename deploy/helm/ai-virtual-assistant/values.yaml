@@ -109,6 +109,58 @@ volumeMounts: []
 #   mountPath: "/etc/foo"
 #   readOnly: true
 
+# OpenTelemetry configuration for auto-instrumentation
+opentelemetry:
+  enabled: true
+  # Security Context Constraints configuration
+  scc:
+    # Enable custom SCC for OpenTelemetry (alternative to changing Pod Security Standards)
+    enabled: false
+  # Sidecar injection configuration
+  sidecar:
+    enabled: true
+    # Instrumentation configuration
+    instrumentation:
+      python: true
+      nodejs: false
+      java: false
+      dotnet: false
+      go: false
+  # OTEL collector configuration
+  collector:
+    # Endpoint for the OTEL collector in observability-hub namespace
+    endpoint: "http://otel-collector-collector.observability-hub.svc.cluster.local:4318"
+    # Use GRPC or HTTP endpoint
+    protocol: "http"
+  # Service configuration
+  service:
+    name: "ai-virtual-assistant"
+    version: ""  # Will default to chart appVersion if empty
+    namespace: ""  # Will default to release namespace if empty
+  # Resource attributes
+  resource:
+    attributes:
+      service:
+        name: "ai-virtual-assistant"
+        version: ""  # Will default to chart appVersion if empty
+      deployment:
+        environment: "production"
+      k8s:
+        namespace:
+          name: ""  # Will default to release namespace if empty
+        deployment:
+          name: ""  # Will default to deployment name if empty
+  # Sampling configuration
+  sampling:
+    ratio: "1.0"  # Sample 100% of traces by default
+  # Batch processor configuration
+  batch:
+    timeout: "1000"  # 1 second in milliseconds
+    maxSize: "512"
+  # Optional: Enable advanced OTEL configuration via ConfigMap
+  config:
+    enabled: false
+
 nodeSelector: {}
 
 tolerations: []

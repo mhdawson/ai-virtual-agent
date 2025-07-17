@@ -15,3 +15,41 @@
   echo "Visit http://127.0.0.1:8080 to use your application"
   kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
 {{- end }}
+
+{{- if .Values.opentelemetry.enabled }}
+
+2. OpenTelemetry Auto-Instrumentation:
+
+OpenTelemetry auto-instrumentation has been enabled for this deployment.
+
+Traces are being sent to: {{ .Values.opentelemetry.collector.endpoint }}
+
+{{- if .Values.opentelemetry.sidecar.enabled }}
+Sidecar injection is enabled with the following instrumentations:
+{{- if .Values.opentelemetry.sidecar.instrumentation.python }}
+  - Python: ✓
+{{- end }}
+{{- if .Values.opentelemetry.sidecar.instrumentation.nodejs }}
+  - Node.js: ✓
+{{- end }}
+{{- if .Values.opentelemetry.sidecar.instrumentation.java }}
+  - Java: ✓
+{{- end }}
+{{- if .Values.opentelemetry.sidecar.instrumentation.dotnet }}
+  - .NET: ✓
+{{- end }}
+{{- if .Values.opentelemetry.sidecar.instrumentation.go }}
+  - Go: ✓
+{{- end }}
+{{- end }}
+
+To view traces, access your observability platform at the configured collector endpoint.
+
+Configuration:
+  Service Name: {{ .Values.opentelemetry.service.name | default (include "ai-virtual-assistant.fullname" .) }}
+  Service Version: {{ .Values.opentelemetry.service.version | default .Chart.AppVersion }}
+  Sampling Ratio: {{ .Values.opentelemetry.sampling.ratio }}
+
+To disable OpenTelemetry, set 'opentelemetry.enabled: false' in your values.yaml
+
+{{- end }}
