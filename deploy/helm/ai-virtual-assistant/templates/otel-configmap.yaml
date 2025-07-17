@@ -1,0 +1,67 @@
+{{- if .Values.opentelemetry.enabled }}
+{{- if .Values.opentelemetry.config.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ai-virtual-assistant.fullname" . }}-otel-config
+  labels:
+    {{- include "ai-virtual-assistant.labels" . | nindent 4 }}
+data:
+  otel-config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+    
+    processors:
+      batch:
+        timeout: {{ .Values.opentelemetry.batch.timeout | default "1s" }}
+        send_batch_max_size: {{ .Values.opentelemetry.batch.maxSize | default "512" }}
+      
+      resource:
+        attributes:
+          - key: service.name
+            value: {{ .Values.opentelemetry.service.name | default (include "ai-virtual-assistant.fullname" .) }}
+            action: upsert
+          - key: service.version
+            value: {{ .Values.opentelemetry.service.version | default .Chart.AppVersion }}
+            action: upsert
+          - key: deployment.environment
+            value: {{ .Values.opentelemetry.resource.attributes.deployment.environment | default "production" }}
+            action: upsert
+          - key: k8s.namespace.name
+            value: {{ .Release.Namespace }}
+            action: upsert
+          - key: k8s.deployment.name
+            value: {{ include "ai-virtual-assistant.fullname" . }}
+            action: upsert
+    
+    exporters:
+      otlp:
+        endpoint: {{ .Values.opentelemetry.collector.endpoint }}
+        {{- if eq .Values.opentelemetry.collector.protocol "grpc" }}
+        compression: gzip
+        {{- end }}
+      
+      logging:
+        loglevel: info
+    
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [resource, batch]
+          exporters: [otlp, logging]
+        metrics:
+          receivers: [otlp]
+          processors: [resource, batch]
+          exporters: [otlp, logging]
+        logs:
+          receivers: [otlp]
+          processors: [resource, batch]
+          exporters: [otlp, logging]
+{{- end }}
+{{- end }} 

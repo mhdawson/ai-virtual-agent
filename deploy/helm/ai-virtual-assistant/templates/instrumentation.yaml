@@ -1,0 +1,129 @@
+{{- if .Values.opentelemetry.enabled }}
+{{- if .Values.opentelemetry.sidecar.enabled }}
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  name: {{ include "ai-virtual-assistant.fullname" . }}
+  labels:
+    {{- include "ai-virtual-assistant.labels" . | nindent 4 }}
+spec:
+  # Exporter configuration
+  exporter:
+    endpoint: {{ .Values.opentelemetry.collector.endpoint }}
+    {{- if eq .Values.opentelemetry.collector.protocol "grpc" }}
+    # Use OTLP/gRPC
+    {{- else }}
+    # Use OTLP/HTTP
+    {{- end }}
+  
+  # Resource attributes
+  resource:
+    addK8sUIDAttributes: true
+    resourceAttributes:
+      service.name: {{ .Values.opentelemetry.service.name | default (include "ai-virtual-assistant.fullname" .) | quote }}
+      service.version: {{ .Values.opentelemetry.service.version | default .Chart.AppVersion | quote }}
+      deployment.environment: {{ .Values.opentelemetry.resource.attributes.deployment.environment | quote }}
+      k8s.namespace.name: {{ .Release.Namespace | quote }}
+      k8s.deployment.name: {{ include "ai-virtual-assistant.fullname" . | quote }}
+
+  # Propagators
+  propagators:
+    - tracecontext
+    - baggage
+  
+  # Sampling configuration
+  sampler:
+    type: traceidratio
+    argument: {{ .Values.opentelemetry.sampling.ratio | quote }}
+
+  {{- if .Values.opentelemetry.sidecar.instrumentation.python }}
+  # Python instrumentation
+  python:
+    image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-python:latest
+    env:
+      - name: OTEL_EXPORTER_OTLP_ENDPOINT
+        value: {{ .Values.opentelemetry.collector.endpoint | quote }}
+      {{- if eq .Values.opentelemetry.collector.protocol "grpc" }}
+      - name: OTEL_EXPORTER_OTLP_PROTOCOL
+        value: "grpc"
+      {{- else }}
+      - name: OTEL_EXPORTER_OTLP_PROTOCOL
+        value: "http/protobuf"
+      {{- end }}
+      - name: OTEL_TRACES_SAMPLER
+        value: "traceidratio"
+      - name: OTEL_TRACES_SAMPLER_ARG
+        value: {{ .Values.opentelemetry.sampling.ratio | quote }}
+      - name: OTEL_BSP_SCHEDULE_DELAY
+        value: {{ .Values.opentelemetry.batch.timeout | quote }}
+      - name: OTEL_BSP_MAX_EXPORT_BATCH_SIZE
+        value: {{ .Values.opentelemetry.batch.maxSize | quote }}
+      - name: OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED
+        value: "true"
+  {{- end }}
+
+  {{- if .Values.opentelemetry.sidecar.instrumentation.nodejs }}
+  # Node.js instrumentation
+  nodejs:
+    image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-nodejs:latest
+    env:
+      - name: OTEL_EXPORTER_OTLP_ENDPOINT
+        value: {{ .Values.opentelemetry.collector.endpoint | quote }}
+      {{- if eq .Values.opentelemetry.collector.protocol "grpc" }}
+      - name: OTEL_EXPORTER_OTLP_PROTOCOL
+        value: "grpc"
+      {{- else }}
+      - name: OTEL_EXPORTER_OTLP_PROTOCOL
+        value: "http/protobuf"
+      {{- end }}
+  {{- end }}
+
+  {{- if .Values.opentelemetry.sidecar.instrumentation.java }}
+  # Java instrumentation
+  java:
+    image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-java:latest
+    env:
+      - name: OTEL_EXPORTER_OTLP_ENDPOINT
+        value: {{ .Values.opentelemetry.collector.endpoint | quote }}
+      {{- if eq .Values.opentelemetry.collector.protocol "grpc" }}
+      - name: OTEL_EXPORTER_OTLP_PROTOCOL
+        value: "grpc"
+      {{- else }}
+      - name: OTEL_EXPORTER_OTLP_PROTOCOL
+        value: "http/protobuf"
+      {{- end }}
+  {{- end }}
+
+  {{- if .Values.opentelemetry.sidecar.instrumentation.dotnet }}
+  # .NET instrumentation
+  dotnet:
+    image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-dotnet:latest
+    env:
+      - name: OTEL_EXPORTER_OTLP_ENDPOINT
+        value: {{ .Values.opentelemetry.collector.endpoint | quote }}
+      {{- if eq .Values.opentelemetry.collector.protocol "grpc" }}
+      - name: OTEL_EXPORTER_OTLP_PROTOCOL
+        value: "grpc"
+      {{- else }}
+      - name: OTEL_EXPORTER_OTLP_PROTOCOL
+        value: "http/protobuf"
+      {{- end }}
+  {{- end }}
+
+  {{- if .Values.opentelemetry.sidecar.instrumentation.go }}
+  # Go instrumentation (requires eBPF)
+  go:
+    image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-go:latest
+    env:
+      - name: OTEL_EXPORTER_OTLP_ENDPOINT
+        value: {{ .Values.opentelemetry.collector.endpoint | quote }}
+      {{- if eq .Values.opentelemetry.collector.protocol "grpc" }}
+      - name: OTEL_EXPORTER_OTLP_PROTOCOL
+        value: "grpc"
+      {{- else }}
+      - name: OTEL_EXPORTER_OTLP_PROTOCOL
+        value: "http/protobuf"
+      {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }} 
