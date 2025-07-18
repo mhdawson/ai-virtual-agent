@@ -35,10 +35,16 @@ The backend now includes both **automatic** and **manual** OpenTelemetry instrum
 - Integration with OpenTelemetry configuration
 
 **Traces Captured**:
-- HTTP request/response cycles
+- HTTP request/response cycles (excluding health checks)
 - Middleware execution
 - Route handler performance
 - Application startup events
+
+**Health Check Exclusions**:
+- `/` (liveness probes)
+- `/health`, `/healthz`, `/ready`, `/readiness`, `/liveness`
+- `/metrics` (Prometheus metrics)
+- `/favicon.ico` (browser requests)
 
 ### 3. Database Layer (`database.py`)
 
@@ -220,6 +226,8 @@ Automatically configured resource attributes:
 4. **Database Insights**: Monitor SQL query performance and optimization opportunities
 5. **User Journey Tracking**: Trace user interactions across API endpoints
 6. **Service Health**: Monitor external service integration health
+7. **Reduced Trace Noise**: Health check exclusions prevent spam from liveness probes
+8. **Cost Optimization**: Lower trace volume reduces observability platform costs
 
 ## Dependencies Added
 

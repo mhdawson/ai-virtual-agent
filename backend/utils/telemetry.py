@@ -27,16 +27,17 @@ logger = get_logger(__name__)
 tracer: Optional[trace.Tracer] = None
 
 
+
 def setup_telemetry(app=None, service_name: str = "ai-virtual-assistant-backend"):
     """
     Initialize OpenTelemetry tracing for the application.
-
+    
     Args:
         app: FastAPI application instance (optional)
         service_name: Name of the service for tracing
     """
     global tracer
-
+    
     # Check if OpenTelemetry is enabled
     otel_enabled = os.getenv("OTEL_SERVICE_NAME") is not None
     if not otel_enabled:
@@ -70,7 +71,7 @@ def setup_telemetry(app=None, service_name: str = "ai-virtual-assistant-backend"
             headers={},
         )
 
-        # Add batch span processor
+        # Add standard batch span processor  
         span_processor = BatchSpanProcessor(otlp_exporter)
         trace_provider.add_span_processor(span_processor)
 
@@ -81,7 +82,7 @@ def setup_telemetry(app=None, service_name: str = "ai-virtual-assistant-backend"
         setup_auto_instrumentation(app)
 
         logger.info(f"OpenTelemetry tracing initialized for service: {service_name}")
-
+        
     except Exception as e:
         logger.error(f"Failed to initialize OpenTelemetry: {str(e)}")
 
@@ -89,10 +90,11 @@ def setup_telemetry(app=None, service_name: str = "ai-virtual-assistant-backend"
 def setup_auto_instrumentation(app=None):
     """Setup automatic instrumentation for common libraries."""
     try:
-        # Instrument FastAPI
+        # Instrument FastAPI (we'll filter health checks in middleware)
         if app:
             FastAPIInstrumentor.instrument_app(
-                app, tracer_provider=trace.get_tracer_provider()
+                app, 
+                tracer_provider=trace.get_tracer_provider()
             )
             logger.info("FastAPI auto-instrumentation enabled")
 
@@ -127,7 +129,7 @@ def get_tracer(name: str = __name__) -> trace.Tracer:
     return trace.get_tracer(name)
 
 
-def create_span(name: str, attributes: dict = None):
+def create_span(name: str, attributes: Optional[dict] = None):
     """
     Create a new span with optional attributes.
 
@@ -172,7 +174,7 @@ def record_exception(span, exception: Exception):
         span.set_status(trace.Status(trace.StatusCode.ERROR, str(exception)))
 
 
-def trace_async_function(func_name: str, attributes: dict = None):
+def trace_async_function(func_name: str, attributes: Optional[dict] = None):
     """
     Decorator for tracing async functions.
 
@@ -204,7 +206,7 @@ def trace_async_function(func_name: str, attributes: dict = None):
     return decorator
 
 
-def trace_function(func_name: str, attributes: dict = None):
+def trace_function(func_name: str, attributes: Optional[dict] = None):
     """
     Decorator for tracing synchronous functions.
 
