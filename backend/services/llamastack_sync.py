@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models
 from ..api.llamastack import client
-from ..utils.telemetry import get_tracer, trace_async_function
 
 log = logging.getLogger(__name__)
 
@@ -18,48 +17,28 @@ class LlamaStackSyncService:
     """Service for synchronizing data with LlamaStack"""
 
     @staticmethod
-    @trace_async_function(
-        "llamastack_sync.knowledge_base_create",
-        {"service": "llamastack", "operation": "sync_create"},
-    )
     async def sync_knowledge_base_create(kb: models.KnowledgeBase) -> bool:
         """
         Sync a newly created knowledge base to LlamaStack.
         Returns True if successful, False otherwise.
         """
-        tracer = get_tracer(__name__)
+        try:
+            log.info(f"Syncing knowledge base creation to LlamaStack: {kb.name}")
 
-        with tracer.start_as_current_span("llamastack.register_vector_db") as span:
-            span.set_attributes(
-                {
-                    "kb.name": kb.name,
-                    "kb.vector_db_name": kb.vector_db_name,
-                    "kb.embedding_model": kb.embedding_model,
-                    "kb.provider_id": kb.provider_id or "pgvector",
-                }
+            # Register the vector database in LlamaStack
+            client.vector_dbs.register(
+                vector_db_id=kb.vector_db_name,
+                embedding_model=kb.embedding_model,
+                embedding_dimension=384,  # Default dimension
+                provider_id=kb.provider_id or "pgvector",
             )
 
-            try:
-                log.info(f"Syncing knowledge base creation to LlamaStack: {kb.name}")
+            log.info(f"Successfully synced knowledge base creation: {kb.name}")
+            return True
 
-                # Register the vector database in LlamaStack
-                client.vector_dbs.register(
-                    vector_db_id=kb.vector_db_name,
-                    embedding_model=kb.embedding_model,
-                    embedding_dimension=384,  # Default dimension
-                    provider_id=kb.provider_id or "pgvector",
-                )
-
-                span.set_attributes({"sync.status": "success"})
-                log.info(f"Successfully synced knowledge base creation: {kb.name}")
-                return True
-
-            except Exception as e:
-                span.set_attributes({"sync.status": "error", "error.message": str(e)})
-                log.error(
-                    f"Failed to sync knowledge base creation to LlamaStack: {str(e)}"
-                )
-                return False
+        except Exception as e:
+            log.error(f"Failed to sync knowledge base creation to LlamaStack: {str(e)}")
+            return False
 
     @staticmethod
     async def sync_knowledge_base_update(kb: models.KnowledgeBase) -> bool:

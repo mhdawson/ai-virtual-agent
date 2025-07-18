@@ -25,7 +25,6 @@ from llama_stack_client.types.agents.session import Session
 from pydantic import BaseModel
 
 from ..api.llamastack import client
-from ..utils.telemetry import trace_async_function
 from ..virtual_agents.agent_resource import EnhancedAgentResource
 from ..virtual_agents.session_resource import EnhancedSessionResource
 
@@ -48,9 +47,6 @@ class CreateSessionRequest(BaseModel):
 
 
 @router.get("/")
-@trace_async_function(
-    "chat_sessions.get_sessions", {"endpoint": "/chat_sessions", "operation": "list"}
-)
 async def get_chat_sessions(agent_id: str, limit: int = 50) -> List[dict]:
     """
     Get a list of chat sessions for a specific agent from LlamaStack.

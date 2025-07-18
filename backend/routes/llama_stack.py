@@ -31,7 +31,7 @@ from backend.database import get_db
 
 from .. import models
 from ..api.llamastack import client
-from ..utils.telemetry import get_tracer, trace_async_function
+from ..utils.telemetry import get_tracer
 from .chat import Chat
 from .virtual_assistants import read_virtual_assistant
 
@@ -359,9 +359,6 @@ class ChatRequest(BaseModel):
 
 
 @router.post("/chat")
-@trace_async_function(
-    "llama_stack.chat", {"endpoint": "/llama_stack/chat", "operation": "stream_chat"}
-)
 async def chat(
     request: ChatRequest,
     background_task: BackgroundTasks,

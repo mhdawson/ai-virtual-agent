@@ -3,10 +3,11 @@ from typing import Any, Dict, List, Optional
 
 from mcp.server.fastmcp import FastMCP
 
-# AsyncSession import removed - not used in this file
-
 from . import crud, database
 from . import models as PydanticModels
+
+# AsyncSession import removed - not used in this file
+
 
 mcp_server = FastMCP()
 

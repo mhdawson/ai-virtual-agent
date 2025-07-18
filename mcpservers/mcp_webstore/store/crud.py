@@ -1,9 +1,9 @@
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# SyncSession import removed - not used in this file
-
 from . import database, models
+
+# SyncSession import removed - not used in this file
 
 
 async def get_product_by_id(db: AsyncSession, product_id: int) -> models.Product | None:

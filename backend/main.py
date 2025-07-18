@@ -30,7 +30,7 @@ from .routes import (
     virtual_assistants,
 )
 from .utils.logging_config import get_logger, setup_logging
-from .utils.telemetry import RequestTracingMiddleware
+from .utils.telemetry import RequestTracingMiddleware, get_tracer
 
 load_dotenv()
 
@@ -39,9 +39,6 @@ setup_logging(level="INFO")
 logger = get_logger(__name__)
 
 app = FastAPI()
-
-# Initialize OpenTelemetry tracing
-# setup_telemetry(app, "ai-virtual-assistant-backend")  # Disabled: using auto-instrumentation instead
 
 # Add request tracing middleware to create parent spans for each request
 app.add_middleware(RequestTracingMiddleware)
@@ -65,18 +62,12 @@ async def on_startup():
     Synchronizes MCP servers, model servers, and knowledge bases with
     their external sources (LlamaStack, etc.) to ensure consistency.
     """
-    import os
-
-    from .utils.telemetry import get_tracer
 
     # Create top-level span for application startup if OpenTelemetry is enabled
     tracer = get_tracer("ai-virtual-assistant-startup")
 
     startup_attributes = {
         "app.name": "ai-virtual-assistant",
-        "app.version": "1.1.0",
-        "app.environment": os.getenv("OTEL_DEPLOYMENT_ENVIRONMENT", "unknown"),
-        "startup.phase": "initialization",
     }
 
     with tracer.start_as_current_span(
@@ -91,7 +82,6 @@ async def on_startup():
                 async with AsyncSessionLocal() as session:
                     await mcp_servers.sync_mcp_servers(session)
                 span.set_attributes({"sync.status": "success"})
-                logger.info("MCP servers sync completed successfully")
             except Exception as e:
                 span.set_attributes({"sync.status": "error", "error.message": str(e)})
                 logger.error(f"Failed to sync MCP servers on startup: {str(e)}")
@@ -103,7 +93,6 @@ async def on_startup():
                 try:
                     await model_servers.sync_model_servers(session)
                     span.set_attributes({"sync.status": "success"})
-                    logger.info("Model servers sync completed successfully")
                 except Exception as e:
                     span.set_attributes(
                         {"sync.status": "error", "error.message": str(e)}
@@ -117,7 +106,6 @@ async def on_startup():
                 try:
                     await knowledge_bases.sync_knowledge_bases(session)
                     span.set_attributes({"sync.status": "success"})
-                    logger.info("Knowledge bases sync completed successfully")
                 except Exception as e:
                     span.set_attributes(
                         {"sync.status": "error", "error.message": str(e)}

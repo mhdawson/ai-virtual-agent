@@ -6,23 +6,9 @@ automatic and manual instrumentation setup for FastAPI, database operations,
 and external service calls.
 """
 
-import os
 from typing import Optional
 
 from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-from opentelemetry.instrumentation.logging import LoggingInstrumentor
-
-# SQLAlchemyInstrumentor moved to database.py for direct usage
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-
-from .logging_config import get_logger
-
-logger = get_logger(__name__)
 
 # Global tracer instance
 tracer: Optional[trace.Tracer] = None
@@ -96,91 +82,6 @@ class RequestTracingMiddleware:
                 raise
 
 
-def setup_telemetry(app=None, service_name: str = "ai-virtual-assistant-backend"):
-    """
-    Initialize OpenTelemetry tracing for the application.
-
-    Args:
-        app: FastAPI application instance (optional)
-        service_name: Name of the service for tracing
-    """
-    global tracer
-
-    # Check if OpenTelemetry is enabled
-    otel_enabled = os.getenv("OTEL_SERVICE_NAME") is not None
-    if not otel_enabled:
-        logger.info("OpenTelemetry not configured - skipping instrumentation")
-        return
-
-    try:
-        # Configure resource attributes
-        resource = Resource.create(
-            {
-                "service.name": service_name,
-                "service.version": os.getenv("OTEL_SERVICE_VERSION", "1.0.0"),
-                "service.namespace": os.getenv(
-                    "OTEL_SERVICE_NAMESPACE", "ai-virtual-agent"
-                ),
-                "deployment.environment": os.getenv(
-                    "DEPLOYMENT_ENVIRONMENT", "development"
-                ),
-            }
-        )
-
-        # Configure trace provider
-        trace_provider = TracerProvider(resource=resource)
-        trace.set_tracer_provider(trace_provider)
-
-        # Configure OTLP exporter
-        otlp_exporter = OTLPSpanExporter(
-            endpoint=os.getenv(
-                "OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318/v1/traces"
-            ),
-            headers={},
-        )
-
-        # Add standard batch span processor
-        span_processor = BatchSpanProcessor(otlp_exporter)
-        trace_provider.add_span_processor(span_processor)
-
-        # Get tracer instance
-        tracer = trace.get_tracer(__name__)
-
-        # Setup automatic instrumentation
-        setup_auto_instrumentation(app)
-
-        logger.info(f"OpenTelemetry tracing initialized for service: {service_name}")
-
-    except Exception as e:
-        logger.error(f"Failed to initialize OpenTelemetry: {str(e)}")
-
-
-def setup_auto_instrumentation(app=None):
-    """Setup automatic instrumentation for common libraries."""
-    try:
-        # Instrument FastAPI (we'll filter health checks in middleware)
-        if app:
-            FastAPIInstrumentor.instrument_app(
-                app, tracer_provider=trace.get_tracer_provider()
-            )
-            logger.info("FastAPI auto-instrumentation enabled")
-
-        # Instrument HTTP client with exclusions for LlamaStack
-        llamastack_url = os.getenv("LLAMASTACK_URL", "http://localhost:8321")
-        HTTPXClientInstrumentor().instrument(excluded_urls=[f"{llamastack_url}.*"])
-        logger.info("HTTPX auto-instrumentation enabled (excluding LlamaStack)")
-
-        # Instrument logging
-        LoggingInstrumentor().instrument(set_logging_format=True)
-        logger.info("Logging auto-instrumentation enabled")
-
-        # Note: SQLAlchemy instrumentation will be done in database.py
-        # to have access to the engine instance
-
-    except Exception as e:
-        logger.error(f"Failed to setup auto-instrumentation: {str(e)}")
-
-
 def get_tracer(name: str = __name__) -> trace.Tracer:
     """
     Get a tracer instance for manual instrumentation.
@@ -213,38 +114,6 @@ def create_operation_span(operation_name: str, attributes: Optional[dict] = None
     return tracer.start_as_current_span(operation_name, attributes=attributes or {})
 
 
-def create_span(name: str, attributes: Optional[dict] = None):
-    """
-    Create a new span with optional attributes.
-
-    Args:
-        name: Name of the span
-        attributes: Optional dictionary of span attributes
-
-    Returns:
-        Span context manager
-    """
-    tracer = get_tracer()
-    span = tracer.start_as_current_span(name)
-
-    if attributes:
-        span.set_attributes(attributes)
-
-    return span
-
-
-def add_span_attributes(span, attributes: dict):
-    """
-    Add attributes to an existing span.
-
-    Args:
-        span: OpenTelemetry span
-        attributes: Dictionary of attributes to add
-    """
-    if span and attributes:
-        span.set_attributes(attributes)
-
-
 def record_exception(span, exception: Exception):
     """
     Record an exception in the current span.
@@ -256,67 +125,3 @@ def record_exception(span, exception: Exception):
     if span:
         span.record_exception(exception)
         span.set_status(trace.Status(trace.StatusCode.ERROR, str(exception)))
-
-
-def trace_async_function(func_name: str, attributes: Optional[dict] = None):
-    """
-    Decorator for tracing async functions.
-
-    Args:
-        func_name: Name for the span
-        attributes: Optional span attributes
-    """
-
-    def decorator(func):
-        import functools
-
-        @functools.wraps(func)
-        async def wrapper(*args, **kwargs):
-            tracer = get_tracer()
-            with tracer.start_as_current_span(func_name) as span:
-                if attributes:
-                    add_span_attributes(span, attributes)
-
-                try:
-                    result = await func(*args, **kwargs)
-                    span.set_status(trace.Status(trace.StatusCode.OK))
-                    return result
-                except Exception as e:
-                    record_exception(span, e)
-                    raise
-
-        return wrapper
-
-    return decorator
-
-
-def trace_function(func_name: str, attributes: Optional[dict] = None):
-    """
-    Decorator for tracing synchronous functions.
-
-    Args:
-        func_name: Name for the span
-        attributes: Optional span attributes
-    """
-
-    def decorator(func):
-        import functools
-
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            tracer = get_tracer()
-            with tracer.start_as_current_span(func_name) as span:
-                if attributes:
-                    add_span_attributes(span, attributes)
-
-                try:
-                    result = func(*args, **kwargs)
-                    span.set_status(trace.Status(trace.StatusCode.OK))
-                    return result
-                except Exception as e:
-                    record_exception(span, e)
-                    raise
-
-        return wrapper
-
-    return decorator
