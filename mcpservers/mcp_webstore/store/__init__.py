@@ -1,1 +1,1 @@
-# Initializes the store appserver package 
+# Initializes the store appserver package
