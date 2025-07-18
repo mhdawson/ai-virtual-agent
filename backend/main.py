@@ -65,23 +65,60 @@ async def on_startup():
     Synchronizes MCP servers, model servers, and knowledge bases with
     their external sources (LlamaStack, etc.) to ensure consistency.
     """
-    try:
-        async with AsyncSessionLocal() as session:
-            await mcp_servers.sync_mcp_servers(session)
-    except Exception as e:
-        logger.error(f"Failed to sync MCP servers on startup: {str(e)}")
+    from .utils.telemetry import get_tracer
+    import os
+    
+    # Create top-level span for application startup if OpenTelemetry is enabled
+    tracer = get_tracer("ai-virtual-assistant-startup")
+    
+    startup_attributes = {
+        "app.name": "ai-virtual-assistant",
+        "app.version": "1.1.0",
+        "app.environment": os.getenv("OTEL_DEPLOYMENT_ENVIRONMENT", "unknown"),
+        "startup.phase": "initialization"
+    }
+    
+    with tracer.start_as_current_span("application_startup", attributes=startup_attributes) as main_span:
+        logger.info("Starting AI Virtual Assistant application initialization")
+        
+        # Sync MCP servers
+        with tracer.start_as_current_span("startup.sync_mcp_servers") as span:
+            span.set_attributes({"sync.component": "mcp_servers"})
+            try:
+                async with AsyncSessionLocal() as session:
+                    await mcp_servers.sync_mcp_servers(session)
+                span.set_attributes({"sync.status": "success"})
+                logger.info("MCP servers sync completed successfully")
+            except Exception as e:
+                span.set_attributes({"sync.status": "error", "error.message": str(e)})
+                logger.error(f"Failed to sync MCP servers on startup: {str(e)}")
 
-    async with AsyncSessionLocal() as session:
-        try:
-            await model_servers.sync_model_servers(session)
-        except Exception as e:
-            logger.error(f"Failed to sync model servers on startup: {str(e)}")
+        # Sync model servers
+        with tracer.start_as_current_span("startup.sync_model_servers") as span:
+            span.set_attributes({"sync.component": "model_servers"})
+            async with AsyncSessionLocal() as session:
+                try:
+                    await model_servers.sync_model_servers(session)
+                    span.set_attributes({"sync.status": "success"})
+                    logger.info("Model servers sync completed successfully")
+                except Exception as e:
+                    span.set_attributes({"sync.status": "error", "error.message": str(e)})
+                    logger.error(f"Failed to sync model servers on startup: {str(e)}")
 
-    async with AsyncSessionLocal() as session:
-        try:
-            await knowledge_bases.sync_knowledge_bases(session)
-        except Exception as e:
-            logger.error(f"Failed to sync knowledge bases on startup: {str(e)}")
+        # Sync knowledge bases
+        with tracer.start_as_current_span("startup.sync_knowledge_bases") as span:
+            span.set_attributes({"sync.component": "knowledge_bases"})
+            async with AsyncSessionLocal() as session:
+                try:
+                    await knowledge_bases.sync_knowledge_bases(session)
+                    span.set_attributes({"sync.status": "success"})
+                    logger.info("Knowledge bases sync completed successfully")
+                except Exception as e:
+                    span.set_attributes({"sync.status": "error", "error.message": str(e)})
+                    logger.error(f"Failed to sync knowledge bases on startup: {str(e)}")
+        
+        main_span.set_attributes({"startup.status": "completed"})
+        logger.info("AI Virtual Assistant application initialization completed")
 
 
 app.include_router(users.router, prefix="/api")
