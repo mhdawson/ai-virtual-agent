@@ -6,6 +6,9 @@ metadata:
   name: {{ include "ai-virtual-assistant.fullname" . }}
   labels:
     {{- include "ai-virtual-assistant.labels" . | nindent 4 }}
+  annotations:
+    # Ensure this resource is created early in the deployment process
+    "helm.sh/resource-policy": "keep"
 spec:
   # Exporter configuration
   exporter:
@@ -39,7 +42,7 @@ spec:
   {{- if .Values.opentelemetry.sidecar.instrumentation.python }}
   # Python instrumentation
   python:
-    image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-python:latest
+    image: {{ .Values.opentelemetry.sidecar.images.python | quote }}
     env:
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: {{ .Values.opentelemetry.collector.endpoint | quote }}
@@ -65,7 +68,7 @@ spec:
   {{- if .Values.opentelemetry.sidecar.instrumentation.nodejs }}
   # Node.js instrumentation
   nodejs:
-    image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-nodejs:latest
+    image: {{ .Values.opentelemetry.sidecar.images.nodejs | quote }}
     env:
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: {{ .Values.opentelemetry.collector.endpoint | quote }}
@@ -81,7 +84,7 @@ spec:
   {{- if .Values.opentelemetry.sidecar.instrumentation.java }}
   # Java instrumentation
   java:
-    image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-java:latest
+    image: {{ .Values.opentelemetry.sidecar.images.java | quote }}
     env:
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: {{ .Values.opentelemetry.collector.endpoint | quote }}
@@ -97,7 +100,7 @@ spec:
   {{- if .Values.opentelemetry.sidecar.instrumentation.dotnet }}
   # .NET instrumentation
   dotnet:
-    image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-dotnet:latest
+    image: {{ .Values.opentelemetry.sidecar.images.dotnet | quote }}
     env:
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: {{ .Values.opentelemetry.collector.endpoint | quote }}
@@ -113,7 +116,7 @@ spec:
   {{- if .Values.opentelemetry.sidecar.instrumentation.go }}
   # Go instrumentation (requires eBPF)
   go:
-    image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-go:latest
+    image: {{ .Values.opentelemetry.sidecar.images.go | quote }}
     env:
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: {{ .Values.opentelemetry.collector.endpoint | quote }}

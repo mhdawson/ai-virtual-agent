@@ -1,5 +1,4 @@
 {{- if .Values.opentelemetry.enabled }}
-{{- if .Values.opentelemetry.scc.enabled }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -31,5 +30,4 @@ subjects:
 - kind: ServiceAccount
   name: {{ include "ai-virtual-assistant.serviceAccountName" . }}
   namespace: {{ .Release.Namespace }}
-{{- end }}
 {{- end }} 

@@ -112,13 +112,16 @@ volumeMounts: []
 # OpenTelemetry configuration for auto-instrumentation
 opentelemetry:
   enabled: true
-  # Security Context Constraints configuration
-  scc:
-    # Enable custom SCC for OpenTelemetry (alternative to changing Pod Security Standards)
-    enabled: false
   # Sidecar injection configuration
   sidecar:
     enabled: true
+    # Auto-instrumentation image versions
+    images:
+      python: "ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-python:0.54b1"
+      nodejs: "ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-nodejs:latest"
+      java: "ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-java:latest"
+      dotnet: "ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-dotnet:latest"
+      go: "ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-go:latest"
     # Instrumentation configuration
     instrumentation:
       python: true

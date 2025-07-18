@@ -1,5 +1,4 @@
 {{- if .Values.opentelemetry.enabled }}
-{{- if .Values.opentelemetry.scc.enabled }}
 apiVersion: security.openshift.io/v1
 kind: SecurityContextConstraints
 metadata:
@@ -44,5 +43,4 @@ volumes:
 - persistentVolumeClaim
 - projected
 - secret
-{{- end }}
 {{- end }} 
