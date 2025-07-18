@@ -31,6 +31,7 @@ from backend.database import get_db
 
 from .. import models
 from ..api.llamastack import client
+from ..utils.telemetry import get_tracer
 from .chat import Chat
 from .virtual_assistants import read_virtual_assistant
 
@@ -388,21 +389,33 @@ async def chat(
             - 400 if session ID is missing
             - 500 for internal server errors during chat processing
     """
+    tracer = get_tracer(__name__)
+
     try:
         log.info(f"Received request: {request.model_dump()}")
 
         # Get the agent directly from LlamaStack
-        try:
-            agent = client.agents.retrieve(agent_id=request.virtualAssistantId)
-            log.info(f"Found agent: {agent.agent_id}")
-        except Exception as e:
-            log.error(
-                f"Agent {request.virtualAssistantId} not found in LlamaStack: {str(e)}"
+        with tracer.start_as_current_span("llama_stack.retrieve_agent") as span:
+            span.set_attributes(
+                {
+                    "agent.id": request.virtualAssistantId,
+                    "llamastack.operation": "retrieve_agent",
+                }
             )
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Virtual assistant {request.virtualAssistantId} not found",
-            )
+
+            try:
+                agent = client.agents.retrieve(agent_id=request.virtualAssistantId)
+                log.info(f"Found agent: {agent.agent_id}")
+                span.set_attributes({"agent.found": True})
+            except Exception as e:
+                span.set_attributes({"agent.found": False, "error.message": str(e)})
+                log.error(
+                    f"Agent {request.virtualAssistantId} not found in LlamaStack: {str(e)}"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Virtual assistant {request.virtualAssistantId} not found",
+                )
 
         # Use the agent_id directly from LlamaStack
         agent_id = request.virtualAssistantId
