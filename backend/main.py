@@ -30,6 +30,7 @@ from .routes import (
     virtual_assistants,
 )
 from .utils.logging_config import get_logger, setup_logging
+from .utils.telemetry import setup_telemetry
 
 load_dotenv()
 
@@ -38,6 +39,9 @@ setup_logging(level="INFO")
 logger = get_logger(__name__)
 
 app = FastAPI()
+
+# Initialize OpenTelemetry tracing
+setup_telemetry(app, "ai-virtual-assistant-backend")
 
 origins = ["*"]  # Update this with the frontend domain in production
 

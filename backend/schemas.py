@@ -96,7 +96,7 @@ class KnowledgeBaseCreate(KnowledgeBaseBase):
             "version": self.version,
             "source": self.source,
             "embedding_model": self.embedding_model,
-            "vector_db_name": self.vector_db_name
+            "vector_db_name": self.vector_db_name,
         }
         if self.source == "URL":
             return base | {"urls": self.source_configuration}

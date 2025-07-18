@@ -20,6 +20,7 @@ from sqlalchemy.future import select
 
 from .. import models, schemas
 from ..database import get_db
+from ..utils.telemetry import get_tracer, trace_async_function
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -28,6 +29,9 @@ router = APIRouter(prefix="/users", tags=["users"])
 # the /api/users context
 @router.get("/profile", response_model=schemas.UserRead)
 @router.get("/profile/", response_model=schemas.UserRead)
+@trace_async_function(
+    "users.read_profile", {"endpoint": "/users/profile", "operation": "read"}
+)
 async def read_profile(request: Request, db: AsyncSession = Depends(get_db)):
     """
     Retrieve an authorized user's profile.
@@ -45,22 +49,41 @@ async def read_profile(request: Request, db: AsyncSession = Depends(get_db)):
         HTTPException: 401 if the user is not authorized
         HTTPException: 403 if the user is not found
     """
-    username = request.headers.get("X-Forwarded-User")
-    email = request.headers.get("X-Forwarded-Email")
-    if not username and not email:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+    tracer = get_tracer(__name__)
+
+    with tracer.start_as_current_span("users.extract_auth_headers") as span:
+        username = request.headers.get("X-Forwarded-User")
+        email = request.headers.get("X-Forwarded-Email")
+        span.set_attributes(
+            {"auth.username": username or "None", "auth.email": email or "None"}
         )
-    result = await db.execute(
-        select(models.User).where(
-            (models.User.username == username) | (models.User.email == email)
+
+        if not username and not email:
+            span.set_attributes({"auth.status": "unauthorized"})
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+            )
+
+    with tracer.start_as_current_span("users.database_lookup") as span:
+        span.set_attributes({"db.operation": "select", "db.table": "users"})
+
+        result = await db.execute(
+            select(models.User).where(
+                (models.User.username == username) | (models.User.email == email)
+            )
         )
-    )
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="User not found"
+        user = result.scalar_one_or_none()
+
+        if not user:
+            span.set_attributes({"user.found": False})
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="User not found"
+            )
+
+        span.set_attributes(
+            {"user.found": True, "user.id": str(user.id), "user.role": user.role}
         )
+
     return user
 
 
