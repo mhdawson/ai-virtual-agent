@@ -1,16 +1,17 @@
 import os
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy import Column, Integer, Numeric, String, Text, ForeignKey, inspect
-from sqlalchemy.orm import relationship
 
+from sqlalchemy import Column, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
 # DATABASE_URL = "postgresql+asyncpg://user:password@host:port/database"
 # For mcp_dbstore, ensure this DATABASE_URL is appropriate for its deployment context.
 # It might be the same as appserver, or different if it connects to a different DB instance or with different credentials.
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://myuser:mypassword@127.0.0.1:5432/store_db")
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", "postgresql+asyncpg://myuser:mypassword@127.0.0.1:5432/store_db"
+)
 
-engine = create_async_engine(DATABASE_URL, echo=False) # echo=True for debugging SQL
+engine = create_async_engine(DATABASE_URL, echo=False)  # echo=True for debugging SQL
 
 AsyncSessionLocal = sessionmaker(
     bind=engine,
@@ -21,6 +22,7 @@ AsyncSessionLocal = sessionmaker(
 )
 
 Base = declarative_base()
+
 
 # SQLAlchemy models (defined here for self-containment, could also be in a separate models.py)
 class ProductDB(Base):
@@ -34,6 +36,7 @@ class ProductDB(Base):
 
     orders = relationship("OrderDB", back_populates="product")
 
+
 class OrderDB(Base):
     __tablename__ = "orders"
 
@@ -43,6 +46,7 @@ class OrderDB(Base):
     customer_identifier = Column(String)
 
     product = relationship("ProductDB", back_populates="orders")
+
 
 async def create_db_and_tables():
     async with engine.begin() as conn:

@@ -393,26 +393,25 @@ async def chat(
             - 500 for internal server errors during chat processing
     """
     tracer = get_tracer(__name__)
-    
+
     try:
         log.info(f"Received request: {request.model_dump()}")
 
         # Get the agent directly from LlamaStack
         with tracer.start_as_current_span("llama_stack.retrieve_agent") as span:
-            span.set_attributes({
-                "agent.id": request.virtualAssistantId,
-                "llamastack.operation": "retrieve_agent"
-            })
-            
+            span.set_attributes(
+                {
+                    "agent.id": request.virtualAssistantId,
+                    "llamastack.operation": "retrieve_agent",
+                }
+            )
+
             try:
                 agent = client.agents.retrieve(agent_id=request.virtualAssistantId)
                 log.info(f"Found agent: {agent.agent_id}")
                 span.set_attributes({"agent.found": True})
             except Exception as e:
-                span.set_attributes({
-                    "agent.found": False,
-                    "error.message": str(e)
-                })
+                span.set_attributes({"agent.found": False, "error.message": str(e)})
                 log.error(
                     f"Agent {request.virtualAssistantId} not found in LlamaStack: {str(e)}"
                 )

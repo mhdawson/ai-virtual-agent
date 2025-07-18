@@ -30,7 +30,7 @@ from .routes import (
     virtual_assistants,
 )
 from .utils.logging_config import get_logger, setup_logging
-from .utils.telemetry import RequestTracingMiddleware, create_operation_span
+from .utils.telemetry import RequestTracingMiddleware
 
 load_dotenv()
 
@@ -65,22 +65,25 @@ async def on_startup():
     Synchronizes MCP servers, model servers, and knowledge bases with
     their external sources (LlamaStack, etc.) to ensure consistency.
     """
-    from .utils.telemetry import get_tracer
     import os
-    
+
+    from .utils.telemetry import get_tracer
+
     # Create top-level span for application startup if OpenTelemetry is enabled
     tracer = get_tracer("ai-virtual-assistant-startup")
-    
+
     startup_attributes = {
         "app.name": "ai-virtual-assistant",
         "app.version": "1.1.0",
         "app.environment": os.getenv("OTEL_DEPLOYMENT_ENVIRONMENT", "unknown"),
-        "startup.phase": "initialization"
+        "startup.phase": "initialization",
     }
-    
-    with tracer.start_as_current_span("application_startup", attributes=startup_attributes) as main_span:
+
+    with tracer.start_as_current_span(
+        "application_startup", attributes=startup_attributes
+    ) as main_span:
         logger.info("Starting AI Virtual Assistant application initialization")
-        
+
         # Sync MCP servers
         with tracer.start_as_current_span("startup.sync_mcp_servers") as span:
             span.set_attributes({"sync.component": "mcp_servers"})
@@ -102,7 +105,9 @@ async def on_startup():
                     span.set_attributes({"sync.status": "success"})
                     logger.info("Model servers sync completed successfully")
                 except Exception as e:
-                    span.set_attributes({"sync.status": "error", "error.message": str(e)})
+                    span.set_attributes(
+                        {"sync.status": "error", "error.message": str(e)}
+                    )
                     logger.error(f"Failed to sync model servers on startup: {str(e)}")
 
         # Sync knowledge bases
@@ -114,9 +119,11 @@ async def on_startup():
                     span.set_attributes({"sync.status": "success"})
                     logger.info("Knowledge bases sync completed successfully")
                 except Exception as e:
-                    span.set_attributes({"sync.status": "error", "error.message": str(e)})
+                    span.set_attributes(
+                        {"sync.status": "error", "error.message": str(e)}
+                    )
                     logger.error(f"Failed to sync knowledge bases on startup: {str(e)}")
-        
+
         main_span.set_attributes({"startup.status": "completed"})
         logger.info("AI Virtual Assistant application initialization completed")
 

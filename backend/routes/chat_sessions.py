@@ -25,7 +25,7 @@ from llama_stack_client.types.agents.session import Session
 from pydantic import BaseModel
 
 from ..api.llamastack import client
-from ..utils.telemetry import get_tracer, trace_async_function
+from ..utils.telemetry import trace_async_function
 from ..virtual_agents.agent_resource import EnhancedAgentResource
 from ..virtual_agents.session_resource import EnhancedSessionResource
 

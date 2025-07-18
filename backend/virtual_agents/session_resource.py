@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import logging
-from typing import List
 import os
+from typing import List
 
 import httpx
 from fastapi import HTTPException

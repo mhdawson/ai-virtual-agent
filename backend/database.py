@@ -8,11 +8,11 @@ for the AI Virtual Assistant application.
 import os
 
 from dotenv import load_dotenv
-from .utils.logging_config import get_logger
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
+from .utils.logging_config import get_logger
 
 load_dotenv()
 logger = get_logger(__name__)
@@ -36,6 +36,7 @@ AsyncSessionLocal = sessionmaker(
     bind=engine, class_=AsyncSession, expire_on_commit=False
 )
 
+
 async def get_db():
     """
     Dependency function that provides database sessions for FastAPI endpoints.
@@ -45,10 +46,17 @@ async def get_db():
     """
     from .utils.telemetry import create_operation_span
 
-    with create_operation_span("database_session", {
-        "db.system": "postgresql", 
-        "db.operation": "get_session",
-        "db.connection_string": DATABASE_URL.replace(DATABASE_URL.split('@')[0] + '@', '@***:***@') if DATABASE_URL else "unknown"
-    }):
+    with create_operation_span(
+        "database_session",
+        {
+            "db.system": "postgresql",
+            "db.operation": "get_session",
+            "db.connection_string": (
+                DATABASE_URL.replace(DATABASE_URL.split("@")[0] + "@", "@***:***@")
+                if DATABASE_URL
+                else "unknown"
+            ),
+        },
+    ):
         async with AsyncSessionLocal() as session:
             yield session
