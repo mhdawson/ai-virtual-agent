@@ -30,6 +30,7 @@ from .routes import (
     virtual_assistants,
 )
 from .utils.logging_config import get_logger, setup_logging
+from .utils.telemetry import RequestTracingMiddleware, create_operation_span
 
 load_dotenv()
 
@@ -41,6 +42,9 @@ app = FastAPI()
 
 # Initialize OpenTelemetry tracing
 # setup_telemetry(app, "ai-virtual-assistant-backend")  # Disabled: using auto-instrumentation instead
+
+# Add request tracing middleware to create parent spans for each request
+app.add_middleware(RequestTracingMiddleware)
 
 origins = ["*"]  # Update this with the frontend domain in production
 

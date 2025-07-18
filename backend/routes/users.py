@@ -20,7 +20,7 @@ from sqlalchemy.future import select
 
 from .. import models, schemas
 from ..database import get_db
-from ..utils.telemetry import get_tracer, trace_async_function
+from ..utils.telemetry import get_tracer, trace_async_function, create_operation_span
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -49,14 +49,17 @@ async def read_profile(request: Request, db: AsyncSession = Depends(get_db)):
         HTTPException: 401 if the user is not authorized
         HTTPException: 403 if the user is not found
     """
-    tracer = get_tracer(__name__)
-
-    with tracer.start_as_current_span("users.extract_auth_headers") as span:
+    # Extract authentication headers with tracing
+    with create_operation_span("extract_auth_headers", {
+        "operation.type": "authentication",
+        "endpoint": "/users/profile"
+    }) as span:
         username = request.headers.get("X-Forwarded-User")
         email = request.headers.get("X-Forwarded-Email")
-        span.set_attributes(
-            {"auth.username": username or "None", "auth.email": email or "None"}
-        )
+        span.set_attributes({
+            "auth.username": username or "None", 
+            "auth.email": email or "None"
+        })
 
         if not username and not email:
             span.set_attributes({"auth.status": "unauthorized"})
@@ -64,9 +67,13 @@ async def read_profile(request: Request, db: AsyncSession = Depends(get_db)):
                 status_code=status.HTTP_401_UNAUTHORIZED,
             )
 
-    with tracer.start_as_current_span("users.database_lookup") as span:
-        span.set_attributes({"db.operation": "select", "db.table": "users"})
-
+    # Database lookup with tracing
+    with create_operation_span("user_database_lookup", {
+        "db.operation": "select", 
+        "db.table": "users",
+        "lookup.username": username,
+        "lookup.email": email
+    }) as span:
         result = await db.execute(
             select(models.User).where(
                 (models.User.username == username) | (models.User.email == email)
